@@ -20,9 +20,10 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
+activitySleeper = 10  # time in seconds in which the activity will be checked
+keySaveSleeper = 120  # time in seconds in which the keyData.txt will be updated
 DATADIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATADIRECTORY, exist_ok=True)
-
 
 
 # fmt: off
@@ -48,20 +49,32 @@ def get_active_window_title():
     if m is not None:
         window_id = m.group(1)
         window = subprocess.Popen(["xprop", "-id", window_id, "WM_NAME"], stdout=subprocess.PIPE)
+        window2 = subprocess.Popen(["xprop", "-id", window_id, "WM_CLASS"], stdout=subprocess.PIPE)
         stdout, stderr = window.communicate()
+        stdout2, stderr2 = window2.communicate()
     else:
         return None
 
     match = re.match(b"WM_NAME\(\w+\) = (?P<name>.+)$", stdout)
+    try:
+        #  TODO: Make this more efficient <06-02-20, Janik von Ahnen> # 
+        stdout2 = stdout2.decode("UTF-8")
+        match2 = stdout2[stdout2.find("=") + 2 :]
+        wmClass = match2[match2.find('"')+1 : match2.find('"', match2.find('"') + 1)]
+    except:
+        LOGGER.error("could not find wmClass: " + str(stdout2))
+        wmClass+"None"
     if match is not None:
-        return match.group("name").strip(b'"').decode("UTF-8")
-
-    return None
+        wmName = match.group("name").strip(b'"').decode("UTF-8")
+    else:
+        wmName = "None"
+    return wmClass + " # " + wmName
 
 
 def activitySaver(sleepIntervall=10):
     while True:
-        LOGGER.info(get_active_window_title() + " ; sleepIntervall= %s", str(sleepIntervall))
+        activity = get_active_window_title()
+        LOGGER.info(activity + " ; sleepIntervall= %s", str(sleepIntervall))
         time.sleep(sleepIntervall)
 
 
@@ -117,7 +130,7 @@ def keyLogger(keyData):
     new_hook.KeyDown = keys.OnKeyPress
     new_hook.HookKeyboard()
     new_hook.start()
-    keys.record(10)
+    keys.record(keySaveSleeper)
 
 
 #######################################################################
@@ -146,7 +159,7 @@ def on_scroll(x, y, dx, dy):
 
 def main(args):
 
-    activityThread = threading.Thread(target=activitySaver, args=(10,))
+    activityThread = threading.Thread(target=activitySaver, args=(activitySleeper,))
     activityThread.start()
 
     keyLoggerThread = threading.Thread(
