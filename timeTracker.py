@@ -20,7 +20,10 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
-DATADIRECTORY=os.path.dirname(os.path.abspath(__file__))
+DATADIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+os.makedirs(DATADIRECTORY, exist_ok=True)
+
+
 
 # fmt: off
 def comandline_argument_parser(parser=None):
@@ -146,7 +149,9 @@ def main(args):
     activityThread = threading.Thread(target=activitySaver, args=(10,))
     activityThread.start()
 
-    keyLoggerThread = threading.Thread(target=keyLogger, args=( os.path.join(DATADIRECTORY,"keyData.json"),))
+    keyLoggerThread = threading.Thread(
+        target=keyLogger, args=(os.path.join(DATADIRECTORY, "keyData.json"),)
+    )
     keyLoggerThread.start()
 
     mouseThread = Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
@@ -157,7 +162,7 @@ if __name__ == "__main__":
     parser = comandline_argument_parser()
     command_line_arguments = parser.parse_args()
     logging.basicConfig(
-        filename= os.path.join(DATADIRECTORY, "logFile.txt"),
+        filename=os.path.join(DATADIRECTORY, "logFile.txt"),
         format="%(levelname)s [%(filename)s:%(lineno)s - %(funcName)s() - %(asctime)s ]: %(message)s",
     )
     logLevel = getattr(logging, command_line_arguments.logging_level.upper())
