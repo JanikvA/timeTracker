@@ -23,6 +23,8 @@ LOGGER = logging.getLogger(__name__)
 activitySleeper = 10  # time in seconds in which the activity will be checked
 keySaveSleeper = 120  # time in seconds in which the keyData.txt will be updated
 DATADIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+LOGFILE = os.path.join(DATADIRECTORY, "logFile.txt")
+KEYDATAFILE = (os.path.join(DATADIRECTORY, "keyData.json"),)
 os.makedirs(DATADIRECTORY, exist_ok=True)
 
 
@@ -57,13 +59,13 @@ def get_active_window_title():
 
     match = re.match(b"WM_NAME\(\w+\) = (?P<name>.+)$", stdout)
     try:
-        #  TODO: Make this more efficient <06-02-20, Janik von Ahnen> # 
+        #  TODO: Make this more efficient <06-02-20, Janik von Ahnen> #
         stdout2 = stdout2.decode("UTF-8")
         match2 = stdout2[stdout2.find("=") + 2 :]
-        wmClass = match2[match2.find('"')+1 : match2.find('"', match2.find('"') + 1)]
+        wmClass = match2[match2.find('"') + 1 : match2.find('"', match2.find('"') + 1)]
     except:
-        LOGGER.error("could not find wmClass: " + str(stdout2))
-        wmClass+"None"
+        LOGGER.warning("could not find wmClass: " + str(stdout2))
+        wmClass + "None"
     if match is not None:
         wmName = match.group("name").strip(b'"').decode("UTF-8")
     else:
@@ -162,9 +164,7 @@ def main(args):
     activityThread = threading.Thread(target=activitySaver, args=(activitySleeper,))
     activityThread.start()
 
-    keyLoggerThread = threading.Thread(
-        target=keyLogger, args=(os.path.join(DATADIRECTORY, "keyData.json"),)
-    )
+    keyLoggerThread = threading.Thread(target=keyLogger, args=(KEYDATAFILE))
     keyLoggerThread.start()
 
     mouseThread = Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     parser = comandline_argument_parser()
     command_line_arguments = parser.parse_args()
     logging.basicConfig(
-        filename=os.path.join(DATADIRECTORY, "logFile.txt"),
+        filename=LOGFILE,
         format="%(levelname)s [%(filename)s:%(lineno)s - %(funcName)s() - %(asctime)s ]: %(message)s",
     )
     logLevel = getattr(logging, command_line_arguments.logging_level.upper())
