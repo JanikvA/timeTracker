@@ -8,6 +8,7 @@ Tracks active window, keystrokes and mouse clicks
 import sys
 import json
 import shutil
+import psutil
 import pyxhook
 from pynput.mouse import Listener
 import os
@@ -22,6 +23,7 @@ LOGGER = logging.getLogger(__name__)
 
 activitySleeper = 10  # time in seconds in which the activity will be checked
 keySaveSleeper = 120  # time in seconds in which the keyData.txt will be updated
+resourceSleeper = 180  # time in seconds in which the CPU/MEM usage will be recorded
 DATADIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 LOGFILE = os.path.join(DATADIRECTORY, "logFile.txt")
 KEYDATAFILE = (os.path.join(DATADIRECTORY, "keyData.json"),)
@@ -41,6 +43,12 @@ def comandline_argument_parser(parser=None):
 #######################################################################
 #                          activity tracking                          #
 #######################################################################
+
+
+def machineIsBeingUsed():
+    if "blurlock" in (p.name() for p in psutil.process_iter()):
+        return False
+    return True
 
 
 def get_active_window_title():
@@ -65,7 +73,7 @@ def get_active_window_title():
         wmClass = match2[match2.find('"') + 1 : match2.find('"', match2.find('"') + 1)]
     except:
         LOGGER.warning("could not find wmClass: " + str(stdout2))
-        wmClass + "None"
+        wmClass = "None"
     if match is not None:
         wmName = match.group("name").strip(b'"').decode("UTF-8")
     else:
@@ -75,8 +83,29 @@ def get_active_window_title():
 
 def activitySaver(sleepIntervall=10):
     while True:
-        activity = get_active_window_title()
-        LOGGER.info(activity + " ; sleepIntervall= %s", str(sleepIntervall))
+        if machineIsBeingUsed():
+            activity = get_active_window_title()
+            LOGGER.info(activity + " ; sleepIntervall= "+ str(sleepIntervall))
+        time.sleep(sleepIntervall)
+
+
+#######################################################################
+#                     computer resource tracking                      #
+#######################################################################
+
+
+def resourceUsageSaver(sleepIntervall=180):
+    while True:
+        LOGGER.info(
+            "CPU: "
+            + str(psutil.cpu_percent())
+            + " # MEM: "
+            + str(psutil.virtual_memory()[2])
+            + " # TEMP: "
+            + open("/sys/class/thermal/thermal_zone0/temp", "r").readline().strip("\n")
+            + " ; sleepIntervall= "+
+            str(sleepIntervall),
+        )
         time.sleep(sleepIntervall)
 
 
@@ -160,6 +189,9 @@ def on_scroll(x, y, dx, dy):
 
 
 def main(args):
+
+    resourceThread = threading.Thread(target=resourceUsageSaver, args=(resourceSleeper,))
+    resourceThread.start()
 
     activityThread = threading.Thread(target=activitySaver, args=(activitySleeper,))
     activityThread.start()
